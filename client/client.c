@@ -24,6 +24,312 @@
 #include <sys/time.h>
 #include <openssl/md5.h>
 
+/* CREATE BOARD */
+void create (int udp_sock, struct  sockaddr_in sin) {
+
+	/* Declare variables */
+	char board_name[100];		// Board name
+	char server_resp[100];		// Server response
+	int addr_len;
+
+	memset(board_name, '\0', sizeof(board_name));
+	memset(server_resp, '\0', sizeof(server_resp));
+
+	/* Prompt user input */
+	printf("Enter name of board to create: ");
+	scanf("%s", board_name);
+
+	/* Send board name to server */
+	if(sendto(udp_sock,board_name,strlen(board_name),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+		perror("ERROR: client-sendto()\n");
+		exit(1);
+	} //end sendto check
+
+	/* Receive server confirmation regarding creation of board and print results */
+	if(recvfrom(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+		perror("ERROR: client-recvfrom()\n");
+		exit(1);
+	} //end recvfrom check
+
+	if (strcmp(server_resp,"Yes") == 0) {
+		printf("Success: Board %s has been created\n", board_name);
+	} else {
+		printf("Failure: Board %s has not been created\n", board_name);
+	}
+
+} // end CREATE BOARD
+
+
+
+/* LEAVE MESSAGE */
+void message (int udp_sock, struct sockaddr_in sin) {
+
+	/* Declare variables */
+	char board_name[100];		// Board name
+	char message[4096];		// Message to be added
+	char server_resp[100];		// Server response
+	int addr_len;
+
+	memset(board_name, '\0', sizeof(board_name));
+	memset(message, '\0', sizeof(message));
+	memset(server_resp, '\0', sizeof(server_resp));
+
+	/* Prompt user input */
+	printf("Enter name of board to add message: ");
+	scanf("%s", board_name);
+
+	/* Send board name to server */
+	if(sendto(udp_sock,board_name,strlen(board_name),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+		perror("ERROR: client-sendto()\n");
+		exit(1);
+	} //end sendto check
+
+	/* Prompt user input */
+	printf("Enter message: ");
+	scanf("%s", message);
+
+	/* Send message to server */
+	if(sendto(udp_sock,message,strlen(message),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+		perror("ERROR: client-sendto()\n");
+		exit(1);
+	} //end sendto check
+
+	/* Receive server confirmation regarding addition of message and print results */
+	if(recvfrom(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+		perror("ERROR: client-recvfrom()\n");
+		exit(1);
+	} //end recvfrom check
+
+	if (strcmp(server_resp,"Yes") == 0) {
+		printf("Success: Message '%s' has been added to Board %s\n", message, board_name);
+	} else {
+		printf("Failure: Message '%s' was not added to Board %s\n", message, board_name);
+	}
+
+} //end LEAVE MESSAGE
+
+
+
+/* DELETE MESSAGE */
+void delete (int udp_sock, struct sockaddr_in sin) {
+
+	/* Declare variables */
+	char board_name[100];           // Board name
+	char message[4096];             // Message to be deleted
+	//int message2;			// Message to be deleted
+	char server_resp[100];          // Server response
+	int addr_len;
+
+	memset(board_name, '\0', sizeof(board_name));
+	memset(message, '\0', sizeof(message));
+	memset(server_resp, '\0', sizeof(server_resp));
+
+	/* Prompt user input */
+	printf("Enter name of board to delete message: ");
+	scanf("%s", board_name);
+
+	/* Send board name to server */
+	if(sendto(udp_sock,board_name,strlen(board_name),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+		perror("ERROR: client-sendto()\n");
+		exit(1);
+	} //end sendto check
+
+	/* Prompt user input */
+	printf("Enter message to be deleted: ");
+	scanf("%s", message);
+
+	/* Send message to server */
+	if(sendto(udp_sock,message,strlen(message),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+		perror("ERROR: client-sendto()\n");
+		exit(1);
+	} //end sendto check
+
+	/* Receive server confirmation regarding deletion of message and print results */
+	if(recvfrom(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+		perror("ERROR: client-recvfrom()\n");
+		exit(1);
+	} //end recvfrom check
+
+	if (strcmp(server_resp,"Yes") == 0) {
+		printf("Success: Message '%s' has been deleted from Board %s\n", message, board_name);
+	} else {
+		printf("Failure: Message '%s' was not deleted from Board %s\n", message, board_name);
+	}
+
+} //end DELETE MESSAGE
+
+
+
+/* EDIT MESSAGE */
+void edit (int udp_sock, struct sockaddr_in sin) {
+
+	/* Declare variables */
+	char board_name[100];           // Board name
+	char message[4096];             // Message to be replaced
+	char new_message[4096];		// New message
+	char server_resp[100];          // Server response
+	int addr_len;
+
+	memset(board_name, '\0', sizeof(board_name));
+	memset(message, '\0', sizeof(message));
+	memset(new_message, '\0', sizeof(new_message));
+	memset(server_resp, '\0', sizeof(server_resp));
+
+	/* Prompt user input */
+	printf("Enter name of board to replace message: ");
+	scanf("%s", board_name);
+
+	/* Send board name to server */
+	if(sendto(udp_sock,board_name,strlen(board_name),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+		perror("ERROR: client-sendto()\n");
+		exit(1);
+	} //end sendto Check
+
+	/* Prompt user input */
+	printf("Enter message to be replaced: ");
+	scanf("%s", message);
+
+	/* Send message to be replaced to server */
+	if(sendto(udp_sock,message,strlen(message),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+		perror("ERROR: client-sendto()\n");
+		exit(1);
+	} //end sendto check
+
+	/* Prompt user input */
+	printf("Enter new message: ");
+	scanf("%s", new_message);
+
+	/* Send new message to server */
+	if(sendto(udp_sock,new_message,strlen(new_message),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+		perror("ERROR: client-sendto()\n");
+		exit(1);
+	} //end sendto check
+
+	/* Receive server confirmation regarding replacement of message and print results */
+	if(recvfrom(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+		perror("ERROR: client-recvfrom()\n");
+		exit(1);
+	} // end recvfrom check
+
+	if (strcmp(server_resp,"Yes") == 0) {
+		printf("Success: Message '%s' has been replaced in Board %s\n", message, board_name);
+	} else {
+		printf("Failure: Message '%s' was not replaced in Board %s\n", message, board_name);
+	}
+
+} //end EDIT MESSAGE
+
+
+
+/* LIST BOARDS */
+void list (int udp_sock, struct sockaddr_in sin) {
+
+	/* Declare variables */
+	char board_names[4096];		// List of boards
+	int addr_len;
+
+	memset(board_names, '\0', sizeof(board_names));
+
+	/* Receive board listing from server and print results */
+	if(recvfrom(udp_sock,board_names,strlen(board_names),0,(struct sockaddr *)&sin,&addr_len) == -1) {
+		perror("ERROR: client-recvfrom()\n");
+		exit(1);
+	} //end recvfrom check
+
+	if (strlen(board_names) == 0) {
+		printf("No boards exist\n");
+	} else {
+		printf("%s\n", board_names);
+	}
+
+} //end LIST BOARDS
+
+
+
+/* DESTROY BOARD */
+void destroy (int udp_sock, struct sockaddr_in sin) {
+
+	/* Declare variables */
+	char board_name[100];           // Board name
+	char server_resp[100];          // Server response
+	int addr_len;
+
+	memset(board_name, '\0', sizeof(board_name));
+	memset(server_resp, '\0', sizeof(server_resp));
+
+	/* Prompt user input */
+	printf("Enter name of board to destroy: ");
+	scanf("%s", board_name);
+
+	/* Send board name to server */
+	if(sendto(udp_sock,board_name,strlen(board_name),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+		perror("ERROR: client-sendto()\n");
+		exit(1);
+	} //end sendto check
+
+	/* Receive server confirmation regarding deletion of board and print results */
+	if(recvfrom(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+		perror("ERROR: client-recvfrom()\n");
+		exit(1);
+	} //end recvfrom check
+
+	if (strcmp(server_resp,"Yes") == 0) {
+		printf("Success: Board %s has been destroyed\n", board_name);
+	} else {
+		printf("Failure: Board %s has not been destroyed\n", board_name);
+	}
+
+} //end DESTROY BOARD
+
+
+
+/* SHUTDOWN SERVER */
+int shutdown_server (int udp_sock, struct sockaddr_in sin) {
+
+	/* Declare variables */
+	char password[100];		// Admin password
+	char server_resp[100];		// Server response
+	int addr_len;
+	int shutdown_ind=0;
+
+	memset(password, '\0', sizeof(password));
+	memset(server_resp, '\0', sizeof(server_resp));
+
+	/* Prompt user input */
+	printf("Enter admin password to server: ");
+	scanf("%s", password);
+
+	/* Send password to server */
+	if(sendto(udp_sock,password,strlen(password),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+		perror("ERROR: cleint-sendto()\n");
+		exit(1);
+	} //end sendto check
+
+	/* Receive server confirmation regarding admin password */
+	if(recvfrom(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+		perror("ERROR: client-recvfrom()\n");
+		exit(1);
+	} //end recvfrom check
+
+	if (strcmp(server_resp, "Yes") == 0) {
+		printf("Success: correct admin password\n");
+		shutdown_ind=1;
+	} else {
+		printf("Failure: incorrect admin password\n");
+		shutdown_ind=0;
+	}
+
+	return shutdown_ind;
+
+} //end SHUTDOWN SERVER
+
+
+
+
+
+
+
+
 int main (int argc, char * argv[]) {
 
 	/* Declare variables */
@@ -43,6 +349,7 @@ int main (int argc, char * argv[]) {
 	size_t	user_ack=0;		// User ack from server
 
 	int	exit_loop=1;		// While loop variable
+	int	shutdown_ind;		// Shutdown indicator
 
 	/* Check arguments in command line */
 	if (argc!=3) {
@@ -151,30 +458,41 @@ int main (int argc, char * argv[]) {
 		} // end IF
 
 		if (strcmp(command,"CRT") == 0) {
-			//create(udp_sock)
+			create(udp_sock,sin);
 		} else if (strcmp(command,"LIS") == 0) {
-			//list(udp_sock);
+			list(udp_sock,sin);
 		} else if (strcmp(command,"MSG") == 0) {
-			//message(udp_sock);
+			message(udp_sock,sin);
 		} else if (strcmp(command,"DLT") == 0) {
-			//delete(udp_sock);
+			delete(udp_sock,sin);
 		} else if (strcmp(command,"RDB") == 0) {
 			//read(tcp_sock);
 		} else if (strcmp(command,"EDT") == 0) {
-			//edit(udp_sock);
+			edit(udp_sock,sin);
 		} else if (strcmp(command,"APN") == 0) {
 			//append(tcp_sock);
 		} else if (strcmp(command,"DWN") == 0) {
 			//download(tcp_sock);
 		} else if (strcmp(command,"DST") == 0) {
-			//destroy(udp_sock);
+			destroy(udp_sock,sin);
 		} else if (strcmp(command,"XIT") == 0) {
-			//exit(udp_sock);
+			close(udp_sock);
+			close(tcp_sock);
+			printf("Session has been closed\n");
+			exit_loop = 0;
 		} else if (strcmp(command,"SHT") == 0) {
-			//shutdown(udp_sock);
+			shutdown_ind = shutdown_server(udp_sock,sin);
+			if (shutdown_ind) {
+				close(udp_sock);
+				close(tcp_sock);
+				printf("Server is shutting down\n");
+				exit_loop = 0;
+			}
 		} else {
 			printf("Incorrect command\n");
 		}
 
 	} // end while loop
+
+	return 0;
 }
