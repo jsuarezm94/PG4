@@ -24,6 +24,20 @@
 #include <sys/time.h>
 #include <openssl/md5.h>
 
+int32_t fileSize(char * file_name) {
+
+	FILE *fp;
+	int32_t file_size = -1;
+	if(fp = fopen(file_name, "r")) {
+		fseek(fp,0,SEEK_END);
+		file_size = ftell(fp);
+		fseek(fp,0,SEEK_SET);
+		fclose(fp);
+	}
+	return file_size;
+
+} //end FILESIZE
+
 /* CREATE BOARD */
 void create (int udp_sock, struct  sockaddr_in sin) {
 
@@ -246,6 +260,239 @@ void list (int udp_sock, struct sockaddr_in sin) {
 
 
 
+/* READ BOARD */
+void readBoard (int tcp_sock) {
+
+	/* Declare variables */
+	char board_name[100];		// Board name
+	int board_len;			// Length of board name
+	int server_board_size;		// Server response - board size
+	int server_data_received;	// Current data received
+	int total_data_received;	// Total data received
+	char server_board[4096];	// Board contents
+
+	/* Prompt user input */
+	printf("Enter board name to read: ");
+	scanf("%s", board_name);
+
+	/* Send length of filename and filename */
+	board_len = strlen(board_name);
+	board_len = htonl(board_len);
+	if (send(tcp_sock,&board_len,sizeof(board_len),0) == -1) {
+		perror("ERROR: client-send()\n");
+		exit(1);
+	} //end send check
+	if (send(tcp_sock,board_name,sizeof(board_name),0) == -1) {
+		perror("ERROR: client-send()\n");
+		exit(1);
+	} //end send check
+
+	/* Receive server confirmation in terms of file size */
+	if (recv(tcp_sock,&server_board_size,sizeof(server_board_size),0) == -1) {
+		perror("ERROR: client-recv()\n");
+		exit(1);
+	} // end recv check
+
+	/* Interpret server response and output appropriate message to user */
+	if (server_board_size < 0) {
+		printf("Board '%s' does not exist\n", board_name);
+		return;
+	}
+
+	/* If board exists, enter loop to receive board contents until total data received == server_board_size */
+	total_data_received = 0;
+	while (total_data_received < server_board_size) {
+		if (server_data_received = recv(tcp_sock,server_board,sizeof(server_board),0) == -1) {
+			total_data_received += server_data_received;
+			printf("%s\n",server_board);
+		} //end if
+	} //end WHILE
+
+} // end READ BOARD
+
+
+
+/* APPEND FILE */
+void append(int tcp_sock) {
+
+	/* Declare variables */
+	char board_name[100];           // Board name
+	int board_len;                  // Length of board name
+	char file_name[100];		// File name
+	int file_len;			// Length of file name
+	int server_response;		// Server confirmation
+	int file_size,original_size;	// File size
+	FILE *fp;
+	char file_line[20000];
+	int len, sent_len;
+
+	/* Prompt user input */
+	printf("Enter board name to read: ");
+	scanf("%s",board_name);
+
+	/* Send length of board name and board name */
+	board_len = strlen(board_name);
+	board_len = htonl(board_len);
+	if (send(tcp_sock,&board_len,sizeof(board_len),0) == -1) {
+		perror("ERROR: client-send()\n");
+		exit(1);
+	} //end send check
+	if (send(tcp_sock,board_name,sizeof(board_name),0) == -1) {
+		perror("ERROR: client-send()\n");
+		exit(1);
+	} //end send check
+
+	/* Prompt user input */
+	printf("Enter name of file to append: ");
+	scanf("%s", file_name);
+
+	/* Send length of filename and filename */
+	file_len = strlen(file_name);
+	file_len = htonl(file_len);
+	if (send(tcp_sock,&file_len,sizeof(file_len),0) == -1) {
+		perror("ERROR: client-send()\n");
+		exit(1);
+	} //end send check
+	if (send(tcp_sock,file_name,sizeof(file_name),0) == -1) {
+		perror("ERROR: client-send()\n");
+		exit(1);
+	} //end send check
+
+	/* Recieve server confirmation */
+	if (recv(tcp_sock,&server_response, sizeof(server_response),0) == -1) {
+		perror("ERROR: client-recv()\n");
+		exit(1);
+	} //end recv check
+
+	/* Interpret server confirmation and output appropriate message */
+	/* Response = 1 -> board exists and file can be created */
+	/* Response = -1 -> board does not exist */
+	/* Response = -2 -> board exists, and attachment already exists on board */
+	if (server_response == -1) {
+		printf("Board does not exist\n");
+		return;
+	} else if (server_response == -2) {
+		printf("Attachment already exists on board\n");
+		return;
+	} else {}
+
+	/* Calculate file size and send it to the server */
+	file_size = fileSize(file_name);
+	original_size = file_size;
+	file_size = htonl(file_size);
+
+	if (send(tcp_sock,&file_size,sizeof(int32_t),0) == -1) {
+		perror("ERROR: client-send()\n");
+		exit(1);
+	} //end send check
+
+	if (original_size == -1) {
+		printf("File does not exist locally\n");
+		return;
+	}
+
+	/* Open file */
+	fp = fopen(file_name, "r");
+	memset(file_line, '\0', sizeof(file_line));
+
+	/* Read file and send to server line by line */
+	len = 0;
+	sent_len = 0;
+	while ( len=fread(file_line,sizeof(char),sizeof(file_line),fp) > 0) {
+		sent_len = send(tcp_sock,file_line,len,0);
+		memset(file_line, '\0', sizeof(file_line));
+	} //end reading file
+	fclose(fp);
+
+} // end APPEND FILE
+
+
+
+/* DOWNLOAD FILE */
+void download (int tcp_sock) {
+
+	/* Declare variables */
+	char board_name[100];		// Board name
+	int board_len;			// Length of board name
+	char file_name[100];		// File name
+	int file_len;			// Length of file name
+	int server_response;		// Server confirmation
+	int file_size;			// File size
+	FILE *fp;
+	char file_line[20000];
+	int len, recv_len, recv_bytes, write_size;
+
+	/* Prompt user input */
+	printf("Enter board name to download from: ");
+	scanf("%s",board_name);
+
+	/* Send length of board name and board name */
+	board_len = strlen(board_name);
+	board_len = htonl(board_len);
+	if (send(tcp_sock,&board_len,sizeof(board_len),0) == -1) {
+		perror("ERROR: client-send()\n");
+		exit(1);
+	} //end send check
+	if (send(tcp_sock,board_name,sizeof(board_name),0) == -1) {
+		perror("ERROR: client-send()\n");
+		exit(1);
+	} //end send check
+
+	/* Prompt user input */
+	printf("Enter name of file to append: ");
+	scanf("%s", file_name);
+
+	/* Send length of filename and filename */
+	file_len = strlen(file_name);
+	file_len = htonl(file_len);
+	if (send(tcp_sock,&file_len,sizeof(file_len),0) == -1) {
+		perror("ERROR: client-send()\n");
+		exit(1);
+	} //end send check
+	if (send(tcp_sock,file_name,sizeof(file_name),0) == -1) {
+		perror("ERROR: client-send()\n");
+		exit(1);
+	} //end send check
+
+	/* Recieve server confirmation */
+	if (recv(tcp_sock,&server_response, sizeof(server_response),0) == -1) {
+		perror("ERROR: client-recv()\n");
+		exit(1);
+	} //end recv check
+
+	/* Interpret server confirmation and output appropriate message */
+	/* Response = 1 -> board exists and file can be created */
+	/* Response = -1 -> board does not exist */
+	/* Response = -2 -> board exists, and file is not appended on board*/
+	if (server_response == -1) {
+		printf("Board does not exist\n");
+		return;
+	} else if (server_response == -2) {
+		printf("Attachment already exists on board\n");
+		return;
+	} else {}
+
+	file_size = server_response;
+	
+	/* Open file to write */
+	fp = fopen(file_name, "w");
+	memset(file_line, '\0', sizeof(file_line));
+	
+	len=0;
+	recv_len=0;
+	while (recv_len = recv(tcp_sock,file_line,sizeof(file_line),0) > 0) {
+		recv_bytes += recv_len;
+		write_size = fwrite(file_line, sizeof(char), recv_len, fp);
+		memset(file_line, '\0', sizeof(file_line));
+		// if (recv_bytes == file_size) break;
+	} //end while
+	fclose(fp);
+
+} //end DOWNLOAD FILE
+
+
+
+
 /* DESTROY BOARD */
 void destroy (int udp_sock, struct sockaddr_in sin) {
 
@@ -405,7 +652,7 @@ int main (int argc, char * argv[]) {
 
 	/* Prompt user for username and send it to the server */
 	printf("%s", server_username);
-	scanf("%s", &username);
+	scanf("%s", username);
 	
 	if(send(tcp_sock, username, sizeof(username), 0) == -1) {
 		perror("ERROR: client-send()\n");
@@ -421,7 +668,7 @@ int main (int argc, char * argv[]) {
 
 	/* Prompt user for password and send it to the server */
 	printf("%s", server_password);
-	scanf("%s", &password);
+	scanf("%s", password);
 
 	if(send(tcp_sock, password, sizeof(password), 0) == -1) {
 		perror("ERROR: client-send()\n");
@@ -443,7 +690,7 @@ int main (int argc, char * argv[]) {
 	while (exit_loop) {
 		char command[10];
 		printf("Enter command: CRT, LIS, MSG, DLT, RDB, EDT, APN, DWN, DST, XIT, SHT\n");
-		scanf("%s", &command);
+		scanf("%s", command);
 
 		if (strcmp(command,"RDB")==0 || strcmp(command,"APN")==0 || strcmp(command,"DWN")==0) {
 			if(send(tcp_sock,command,sizeof(command), 0) == -1) {
@@ -466,11 +713,11 @@ int main (int argc, char * argv[]) {
 		} else if (strcmp(command,"DLT") == 0) {
 			delete(udp_sock,sin);
 		} else if (strcmp(command,"RDB") == 0) {
-			//read(tcp_sock);
+			readBoard(tcp_sock);
 		} else if (strcmp(command,"EDT") == 0) {
 			edit(udp_sock,sin);
 		} else if (strcmp(command,"APN") == 0) {
-			//append(tcp_sock);
+			append(tcp_sock);
 		} else if (strcmp(command,"DWN") == 0) {
 			//download(tcp_sock);
 		} else if (strcmp(command,"DST") == 0) {
