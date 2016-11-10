@@ -691,7 +691,7 @@ int main (int argc, char * argv[]) {
 		char command[10];
 		printf("Enter command: CRT, LIS, MSG, DLT, RDB, EDT, APN, DWN, DST, XIT, SHT\n");
 		scanf("%s", command);
-
+/*
 		if (strcmp(command,"RDB")==0 || strcmp(command,"APN")==0 || strcmp(command,"DWN")==0) {
 			if(send(tcp_sock,command,sizeof(command), 0) == -1) {
 				perror("ERROR: client-send()\n");
@@ -703,6 +703,12 @@ int main (int argc, char * argv[]) {
 				exit(1);
 			} // end send check
 		} // end IF
+*/
+
+		if(sendto(udp_sock,command,strlen(command),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+			perror("ERROR: client-sendto()\n");
+			exit(1);
+		} //end sendto check
 
 		if (strcmp(command,"CRT") == 0) {
 			create(udp_sock,sin);
@@ -719,7 +725,7 @@ int main (int argc, char * argv[]) {
 		} else if (strcmp(command,"APN") == 0) {
 			append(tcp_sock);
 		} else if (strcmp(command,"DWN") == 0) {
-			//download(tcp_sock);
+			download(tcp_sock);
 		} else if (strcmp(command,"DST") == 0) {
 			destroy(udp_sock,sin);
 		} else if (strcmp(command,"XIT") == 0) {
