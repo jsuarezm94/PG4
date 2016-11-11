@@ -31,6 +31,8 @@
 #include <fcntl.h>
 #include <string.h>
 
+
+
 #define MAX_MD5LENGTH 50
 #define MAX_FILENAME 100
 #define MAX_PENDING 5
@@ -69,7 +71,7 @@ void create(int udp_sock, struct  sockaddr_in sin, char * user_name) {
 	char server_resp[100];
 	char board_head[200];	
 
-	int fp;
+	FILE *fp;
 
 	int addr_len;
 
@@ -79,21 +81,25 @@ void create(int udp_sock, struct  sockaddr_in sin, char * user_name) {
 
 	
         /* Receive board_name of board to create from the client */
-        if(recvfrom(udp_sock,board_name,strlen(board_name),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+        if(recvfrom(udp_sock,board_name,sizeof(board_name),0,(struct sockaddr *)&sin, &addr_len) == -1) {
                 perror("ERROR: client-recvfrom()\n");
                 exit(1);
         } //end recvfrom check
 
-	fp = open(board_name, O_CREAT, S_IRUSR | S_IWUSR);
+	printf("board name = %s\n", board_name);
 
-	strcpy(board_head, user_name);
-	strcat(board_head, " ");
-	strcat(board_head, board_name);
-	strcat(board_head, "\n");
-
-	int wf = write(fp, board_head, sizeof(board_head) );
-	printf("Number of bytes written = %i\n");
-
+        strcpy(board_head, user_name);
+        strcat(board_head, " ");
+        strcat(board_head, board_name);
+	
+	printf("board_head = %s\n", board_head);
+	
+	size_t wf;
+	if (fp = fopen(board_name,"ab+" )) {
+		wf = fwrite(board_head, 1, sizeof(board_head), fp );
+		fclose(fp);
+		printf("Number of bytes written = %i\n", wf);	
+	}
 
 	strcpy(server_resp, "Yes" );
 
@@ -115,23 +121,27 @@ void message(int udp_sock, struct  sockaddr_in sin, char * user_name) {
 	char message[4096];
 	char server_resp[100];
         int addr_len;
-	
+
+	printf("inside message\n");	
 
         memset(board_name, '\0', sizeof(board_name));
         memset(message, '\0', sizeof(message));
         memset(server_resp, '\0', sizeof(server_resp));
 
         /* Receive board_name of board to create from the client */
-        if(recvfrom(udp_sock,board_name,strlen(board_name),0,(struct sockaddr *)&sin, &addr_len) == -1) {
-                perror("ERROR: client-recvfrom()\n");
+        if(recvfrom(udp_sock,board_name,sizeof(board_name),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+               	perror("ERROR: client-recvfrom()\n");
                 exit(1);
         } //end recvfrom check
 
         /* Receive message to post on board */
-        if(recvfrom(udp_sock,message,strlen(message),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+        if(recvfrom(udp_sock,message,sizeof(message),0,(struct sockaddr *)&sin, &addr_len) == -1) {
                 perror("ERROR: client-recvfrom()\n");
                 exit(1);
         } //end recvfrom check
+
+	printf("board_name: %s\n", board_name);
+	printf("message: %s\n", message);
 
 	/*
  	bool found = false;
@@ -296,7 +306,7 @@ void readBoard(int udp_sock, struct  so) {
 int main (int argc, char * argv[]) {
 
 	/* Declare variables */
-	struct       sockaddr_in sin;        // Address structure
+	struct       sockaddr_in 	sin, 	client_addr;        // Address structure
 	int          addr_len;               // Length
 
         int     udp_sock;               // UDP - File handle for socket
@@ -338,6 +348,11 @@ int main (int argc, char * argv[]) {
                 perror("ERROR: client-socket()\n");
                 exit(1);
         } // end socket check
+
+        if((bind(udp_sock,(struct sockaddr*)&sin, sizeof(sin))) < 0){
+                perror("simplex-talk: bind");
+                exit(1);
+        }
 
 
 	/* --- Setting up TCP server ---  */
@@ -439,24 +454,29 @@ int main (int argc, char * argv[]) {
 		}
 		int connected = 1;
 		char protocol[10];
+		int bytes_buf;
+		
+		addr_len = sizeof(client_addr);
+
 		/* --------- WATING FOR USER OPERATION  --------- */
 		while(connected) {
+			memset(buf, '\0', sizeof(buf));
 			printf("Waiting for operation from client.\n");
-			if (recvfrom(udp_sock, buf,strlen(buf),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+			if (bytes_buf = recvfrom(udp_sock, buf,sizeof(buf),0,(struct sockaddr *)&sin, &addr_len) == -1) {
                			perror("ERROR: client-recvfrom()\n");
                 		exit(1);
         		} //end recvfrom check
-			printf("Received: %s\n", buf);
+			printf("Received: %s, %i bytes\n", buf, bytes_buf);
 
 
                         if (strcmp(buf,"CRT")==0){
 				printf("Calling CREATE\n");
                         	create(udp_sock, sin, username);
                         }
-                        else if (strcmp(buf,"LIS")==0){
-                                //upload(sock);
-                        }
                         else if (strcmp(buf,"MSG")==0){
+                                message(udp_sock, sin, username);
+                        }
+                        else if (strcmp(buf,"LIS")==0){
                                 //list(sock);
                         }
                         else if (strcmp(buf,"DEL")==0){
