@@ -60,7 +60,7 @@ void create (int udp_sock, struct  sockaddr_in sin) {
 	} //end sendto check
 
 	/* Receive server confirmation regarding creation of board and print results */
-	if(recvfrom(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+	if(recvfrom(udp_sock,server_resp,sizeof(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
 		perror("ERROR: client-recvfrom()\n");
 		exit(1);
 	} //end recvfrom check
@@ -109,7 +109,7 @@ void message (int udp_sock, struct sockaddr_in sin) {
 	} //end sendto check
 
 	/* Receive server confirmation regarding addition of message and print results */
-	if(recvfrom(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+	if(recvfrom(udp_sock,server_resp,sizeof(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
 		perror("ERROR: client-recvfrom()\n");
 		exit(1);
 	} //end recvfrom check
@@ -159,7 +159,7 @@ void delete (int udp_sock, struct sockaddr_in sin) {
 	} //end sendto check
 
 	/* Receive server confirmation regarding deletion of message and print results */
-	if(recvfrom(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+	if(recvfrom(udp_sock,server_resp,sizeof(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
 		perror("ERROR: client-recvfrom()\n");
 		exit(1);
 	} //end recvfrom check
@@ -220,7 +220,7 @@ void edit (int udp_sock, struct sockaddr_in sin) {
 	} //end sendto check
 
 	/* Receive server confirmation regarding replacement of message and print results */
-	if(recvfrom(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+	if(recvfrom(udp_sock,server_resp,sizeof(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
 		perror("ERROR: client-recvfrom()\n");
 		exit(1);
 	} // end recvfrom check
@@ -245,7 +245,7 @@ void list (int udp_sock, struct sockaddr_in sin) {
 	memset(board_names, '\0', sizeof(board_names));
 
 	/* Receive board listing from server and print results */
-	if(recvfrom(udp_sock,board_names,strlen(board_names),0,(struct sockaddr *)&sin,&addr_len) == -1) {
+	if(recvfrom(udp_sock,board_names,sizeof(board_names),0,(struct sockaddr *)&sin,&addr_len) == -1) {
 		perror("ERROR: client-recvfrom()\n");
 		exit(1);
 	} //end recvfrom check
@@ -515,7 +515,7 @@ void destroy (int udp_sock, struct sockaddr_in sin) {
 	} //end sendto check
 
 	/* Receive server confirmation regarding deletion of board and print results */
-	if(recvfrom(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+	if(recvfrom(udp_sock,server_resp,sizeof(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
 		perror("ERROR: client-recvfrom()\n");
 		exit(1);
 	} //end recvfrom check
@@ -553,7 +553,7 @@ int shutdown_server (int udp_sock, struct sockaddr_in sin) {
 	} //end sendto check
 
 	/* Receive server confirmation regarding admin password */
-	if(recvfrom(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+	if(recvfrom(udp_sock,server_resp,sizeof(server_resp),0,(struct sockaddr *)&sin, &addr_len) == -1) {
 		perror("ERROR: client-recvfrom()\n");
 		exit(1);
 	} //end recvfrom check
@@ -583,10 +583,10 @@ int main (int argc, char * argv[]) {
 	FILE 	*fn;			// File handle for file
 	struct	hostent *host;		// Host
 	struct	sockaddr_in sin;	// Address struct used for communication
+	struct 	client_addr;		// Address structure
 	char	*hp;			// Host
 	int	udp_sock;		// UDP - File handle for socket
 	int	tcp_sock;		// TCP - File handle for socket
-	int	addr_len;		// Address length
 	int	port_num;		// Port number
 
 	char	username[150];		// Username
@@ -689,7 +689,7 @@ int main (int argc, char * argv[]) {
 	/* -------- PROMPT USER FOR OPERATION -------- */
 	while (exit_loop) {
 		char command[10];
-		printf("Enter command: CRT, LIS, MSG, DLT, RDB, EDT, APN, DWN, DST, XIT, SHT\n");
+		printf("Enter command: CRT, LIS, MSG, DLT, RDB, EDT, APN, DWN, DST, XIT, SHT: ");
 		scanf("%s", command);
 /*
 		if (strcmp(command,"RDB")==0 || strcmp(command,"APN")==0 || strcmp(command,"DWN")==0) {
@@ -704,7 +704,7 @@ int main (int argc, char * argv[]) {
 			} // end send check
 		} // end IF
 */
-
+		printf("Command to send: %s\n", command);
 		if(sendto(udp_sock,command,strlen(command),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
 			perror("ERROR: client-sendto()\n");
 			exit(1);
