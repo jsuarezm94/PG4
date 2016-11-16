@@ -83,6 +83,8 @@ void message (int udp_sock, struct sockaddr_in sin) {
 	char message[4096];		// Message to be added
 	char server_resp[100];		// Server response
 	int addr_len;
+	char *message_ptr = NULL;
+	size_t size;
 
 	memset(board_name, '\0', sizeof(board_name));
 	memset(message, '\0', sizeof(message));
@@ -99,11 +101,19 @@ void message (int udp_sock, struct sockaddr_in sin) {
 	} //end sendto check
 
 	/* Prompt user input */
-	printf("Enter message: ");
-	scanf("%s", message);
+	printf("Enter message: \n");
+	if (getline(&message_ptr, &size, stdin) == -1) {
+		printf("Failed to read message\n");
+		exit(1);
+	} else {
+		printf("LINE: %s", message_ptr);
+	}
+	//scanf("%s", message);
+	//fgets(message, sizeof(message), stdin);
+	//getline(&message2, &n, stdin);
 
 	/* Send message to server */
-	if(sendto(udp_sock,message,strlen(message),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+	if(sendto(udp_sock,message_ptr,strlen(message_ptr),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
 		perror("ERROR: client-sendto()\n");
 		exit(1);
 	} //end sendto check
@@ -115,9 +125,9 @@ void message (int udp_sock, struct sockaddr_in sin) {
 	} //end recvfrom check
 
 	if (strcmp(server_resp,"Yes") == 0) {
-		printf("Success: Message '%s' has been added to Board %s\n", message, board_name);
+		printf("Success: Message '%s' has been added to Board %s\n", message_ptr, board_name);
 	} else {
-		printf("Failure: Message '%s' was not added to Board %s\n", message, board_name);
+		printf("Failure: Message '%s' was not added to Board %s\n", message_ptr, board_name);
 	}
 
 } //end LEAVE MESSAGE
@@ -125,7 +135,7 @@ void message (int udp_sock, struct sockaddr_in sin) {
 
 
 /* DELETE MESSAGE */
-void delete (int udp_sock, struct sockaddr_in sin) {
+void deleteMessage (int udp_sock, struct sockaddr_in sin) {
 
 	/* Declare variables */
 	char board_name[100];           // Board name
@@ -163,6 +173,8 @@ void delete (int udp_sock, struct sockaddr_in sin) {
 		perror("ERROR: client-recvfrom()\n");
 		exit(1);
 	} //end recvfrom check
+
+	printf("RESPONSE: %s\n", server_resp);
 
 	if (strcmp(server_resp,"Yes") == 0) {
 		printf("Success: Message '%s' has been deleted from Board %s\n", message, board_name);
@@ -241,23 +253,31 @@ void list (int udp_sock, struct sockaddr_in sin) {
 	/* Declare variables */
 	char board_names[4096];		// List of boards
 	int addr_len;
+	int dir_size = 0;
+	int dir_bytes = 0;
+	int n_bytes = 0;
+	char list_buf[100];
 
-	memset(board_names, '\0', sizeof(board_names));
+	memset(board_names,'\0',sizeof(board_names));
 
-	/* Receive board listing from server and print results */
-	if(recvfrom(udp_sock,board_names,sizeof(board_names),0,(struct sockaddr *)&sin,&addr_len) == -1) {
-		perror("ERROR: client-recvfrom()\n");
-		exit(1);
-	} //end recvfrom check
+        /* Receive board listing size from server and print results */
 
-	if (strlen(board_names) == 0) {
-		printf("No boards exist\n");
-	} else {
-		printf("%s\n", board_names);
-	}
+        if(recvfrom(udp_sock,&dir_size,sizeof(dir_size),0,(struct sockaddr *)&sin,&addr_len) == -1) {
+                perror("ERROR: client-recvfrom()\n");
+                exit(1);
+        } //end recvfrom check
 
+        while (n_bytes < dir_size) {
+                if(recvfrom(udp_sock,list_buf,sizeof(list_buf),0,(struct sockaddr *)&sin,&addr_len) == -1) {
+                        perror("ERROR: client-recvfrom()\n");
+                        exit(1);
+                } //end recvfrom check
+                n_bytes ++;
+                printf("%s\n", list_buf);
+                fflush(stdout);
+                memset(list_buf, '\0', sizeof(list_buf));
+        }
 } //end LIST BOARDS
-
 
 
 /* READ BOARD */
@@ -266,7 +286,7 @@ void readBoard (int tcp_sock) {
 	/* Declare variables */
 	char board_name[100];		// Board name
 	int board_len;			// Length of board name
-	int server_board_size;		// Server response - board size
+	int server_board_size=1;		// Server response - board size
 	int server_data_received;	// Current data received
 	int total_data_received;	// Total data received
 	char server_board[4096];	// Board contents
@@ -288,10 +308,12 @@ void readBoard (int tcp_sock) {
 	} //end send check
 
 	/* Receive server confirmation in terms of file size */
-	if (recv(tcp_sock,&server_board_size,sizeof(server_board_size),0) == -1) {
+	if (recv(tcp_sock,&server_board_size,sizeof(int32_t),0) == -1) {
 		perror("ERROR: client-recv()\n");
 		exit(1);
 	} // end recv check
+	server_board_size = ntohl(server_board_size);
+	printf("BOARD SIZE: %i\n", server_board_size);
 
 	/* Interpret server response and output appropriate message to user */
 	if (server_board_size < 0) {
@@ -301,8 +323,12 @@ void readBoard (int tcp_sock) {
 
 	/* If board exists, enter loop to receive board contents until total data received == server_board_size */
 	total_data_received = 0;
+	server_board_size = 36;
+	printf("Before receiving data\n");
 	while (total_data_received < server_board_size) {
-		if (server_data_received = recv(tcp_sock,server_board,sizeof(server_board),0) == -1) {
+		printf("Inside while loop\n");
+		if ((server_data_received = recv(tcp_sock,server_board,sizeof(server_board),0)) == -1) {
+			printf("Receiving data\n");
 			total_data_received += server_data_received;
 			printf("%s\n",server_board);
 		} //end if
@@ -363,6 +389,7 @@ void append(int tcp_sock) {
 		perror("ERROR: client-recv()\n");
 		exit(1);
 	} //end recv check
+	printf("RESPONSE: %i\n", server_response);
 
 	/* Interpret server confirmation and output appropriate message */
 	/* Response = 1 -> board exists and file can be created */
@@ -385,7 +412,8 @@ void append(int tcp_sock) {
 		perror("ERROR: client-send()\n");
 		exit(1);
 	} //end send check
-
+	printf("SENT FILE SIZE: %i\n", original_size);
+	
 	if (original_size == -1) {
 		printf("File does not exist locally\n");
 		return;
@@ -704,7 +732,6 @@ int main (int argc, char * argv[]) {
 			} // end send check
 		} // end IF
 */
-		printf("Command to send: %s\n", command);
 		if(sendto(udp_sock,command,strlen(command),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
 			perror("ERROR: client-sendto()\n");
 			exit(1);
@@ -717,7 +744,7 @@ int main (int argc, char * argv[]) {
 		} else if (strcmp(command,"MSG") == 0) {
 			message(udp_sock,sin);
 		} else if (strcmp(command,"DLT") == 0) {
-			delete(udp_sock,sin);
+			deleteMessage(udp_sock,sin);
 		} else if (strcmp(command,"RDB") == 0) {
 			readBoard(tcp_sock);
 		} else if (strcmp(command,"EDT") == 0) {
