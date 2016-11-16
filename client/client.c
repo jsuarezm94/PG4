@@ -101,19 +101,20 @@ void message (int udp_sock, struct sockaddr_in sin) {
 	} //end sendto check
 
 	/* Prompt user input */
-	printf("Enter message: \n");
-	if (getline(&message_ptr, &size, stdin) == -1) {
+	printf("Enter message: ");
+/*	if (getline(&message_ptr, &size, stdin) == -1) {
 		printf("Failed to read message\n");
 		exit(1);
 	} else {
 		printf("LINE: %s", message_ptr);
 	}
-	//scanf("%s", message);
+*/
+	scanf("%s", message);
 	//fgets(message, sizeof(message), stdin);
 	//getline(&message2, &n, stdin);
 
 	/* Send message to server */
-	if(sendto(udp_sock,message_ptr,strlen(message_ptr),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+	if(sendto(udp_sock,message,strlen(message),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
 		perror("ERROR: client-sendto()\n");
 		exit(1);
 	} //end sendto check
@@ -285,11 +286,18 @@ void readBoard (int tcp_sock) {
 
 	/* Declare variables */
 	char board_name[100];		// Board name
-	int board_len;			// Length of board name
-	int server_board_size=1;		// Server response - board size
+	int32_t board_len;			// Length of board name
+	int32_t server_board_size=1;		// Server response - board size
 	int server_data_received;	// Current data received
 	int total_data_received;	// Total data received
 	char server_board[4096];	// Board contents
+
+        char bsize[100];
+
+
+	int status;
+
+        memset(bsize,'\0', sizeof(bsize));
 
 	/* Prompt user input */
 	printf("Enter board name to read: ");
@@ -298,7 +306,7 @@ void readBoard (int tcp_sock) {
 	/* Send length of filename and filename */
 	board_len = strlen(board_name);
 	board_len = htonl(board_len);
-	if (send(tcp_sock,&board_len,sizeof(board_len),0) == -1) {
+	if (send(tcp_sock,&board_len,sizeof(int32_t),0) == -1) {
 		perror("ERROR: client-send()\n");
 		exit(1);
 	} //end send check
@@ -308,10 +316,20 @@ void readBoard (int tcp_sock) {
 	} //end send check
 
 	/* Receive server confirmation in terms of file size */
-	if (recv(tcp_sock,&server_board_size,sizeof(int32_t),0) == -1) {
+/*	if ( (status = recv(tcp_sock,&server_board_size,sizeof(int32_t),0) ) == -1) {
 		perror("ERROR: client-recv()\n");
 		exit(1);
 	} // end recv check
+	*/
+	recv(tcp_sock,bsize,sizeof(bsize),0);
+	
+	printf("bsize = %s", bsize);
+	int sizeb;
+	sizeb =	atoi(bsize);
+	printf ("sizeb = %i\n", sizeb);
+
+	printf("status = %i\n", status);
+        printf("BOARD SIZE: %i\n", server_board_size);
 	server_board_size = ntohl(server_board_size);
 	printf("BOARD SIZE: %i\n", server_board_size);
 
@@ -323,7 +341,6 @@ void readBoard (int tcp_sock) {
 
 	/* If board exists, enter loop to receive board contents until total data received == server_board_size */
 	total_data_received = 0;
-	server_board_size = 36;
 	printf("Before receiving data\n");
 	while (total_data_received < server_board_size) {
 		printf("Inside while loop\n");

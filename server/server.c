@@ -241,6 +241,16 @@ void message(int udp_sock, struct  sockaddr_in sin, char * user_name) {
                 else {
                         board_exists = -1;
                 }
+                if (fp = fopen(board_name,"ab+" )) {
+                        wf = fwrite("\n", 1, sizeof("\n")-1, fp );
+                        fclose(fp);
+                        printf("Number of bytes written = %i\n", wf);
+                }
+                else {  
+                        board_exists = -1;
+                }
+
+
 
 	} 
 
@@ -268,6 +278,7 @@ void deleteMessage (int udp_sock, struct  sockaddr_in sin, char * user_name) {
 	char board_name[100];		
 	char message[4096];
         char server_resp[100];
+	char b_message[4096];
         int addr_len;
 	int board_exists;
 
@@ -296,86 +307,81 @@ void deleteMessage (int udp_sock, struct  sockaddr_in sin, char * user_name) {
         } //end recvfrom check
 	
 	/* Receive message to be deleted */
-        if(recvfrom(udp_sock,message,sizeof(message),0,(struct sockaddr *)&sin, &addr_len) == -1) {
+        if(recvfrom(udp_sock,b_message,sizeof(b_message),0,(struct sockaddr *)&sin, &addr_len) == -1) {
                 perror("ERROR: client-recvfrom()\n");
                 exit(1);
         } //end recvfrom check
 
-        strcat(user_name,"\n");
+       	strcat(user_name,"\n");
 
-        printf("board_name: %s\n", board_name);
-        printf("message: %s\n", message);
+        //printf("board_name: %s\n", board_name);
+        //printf("message: %s\n", message);
 	size_t wf;
-	printf("Before deletion\n");
+	//printf("Before deletion\n");
+	
 	/* PERFORM DELETION*/
-	if ( (board_exists = access(board_name, F_OK)) != -1 ) {
-		printf("Inside access\n");
-	        if ( fp = fopen(board_name, "rw")) {
-			printf("Before while\n");
-			while (read = getline(&line, &len, fp) != -1) {
-				printf("Inside while\n");
-				printf("LINE = %s\n", line);
-				printf("MESSAGE = %s\n", message);
-				printf("USERNAME = %s\n", user_name);
-				printf("PREV_LINE = %s\n", prev_line);
-				if ( (strcmp(user_name,line)==0)) {
-					if (read = getline(&line_msg, &len_msg, fp) != -1 ) {
-						if (strcmp(message,line)==0) {
-				     			printf("FOUND!!!\n");
-                                        		found_message = 1;	
-						} 
-						else {
-                                        		printf("printing line = %s\n", line);
-                                                        printf("printing line_msg = %s\n", line_msg);
-                                       			wf = fwrite(line, 1, sizeof(line)-1, out_file);
-                                                        wf = fwrite(line_msg, 1, sizeof(line_msg)-1, out_file);
-                                        		fclose(out_file);
-                                        		scanf("%s",server_resp);
-                                        		out_file = fopen("temp.txt", "ab+");		
-						}
-					}
-				}
-				else  {
-					printf("printing line = %s\n", line);
-					wf = fwrite(line, sizeof(char), sizeof(line)-1, out_file );	
-        	                        /*memset(prev_line, '\0', sizeof(prev_line));*/
-	                                /*snprintf(prev_line, sizeof(prev_line),"%s", line);*/
-					fclose(out_file);
-					scanf("%s",server_resp);
-					out_file = fopen("temp.txt", "ab+");	
-				}
-			}
-        	}
+	strcpy(server_resp,"No");
+        if( (board_exists = access(board_name, F_OK)) == -1) {
+		printf("Board does not exist\n");
+                if(sendto(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+                        perror("ERROR: client-sendto()\n");
+                        exit(1);
+                } //end sendto check
+                return;
 	}
-	fclose(fp);
+	fp = fopen(board_name, "rw");
+        if (fp == NULL) {
+              	printf("Cannot open file\n");
+                if(sendto(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+                        perror("ERROR: client-sendto()\n");
+                        exit(1);
+                } //end sendto check    
+                return;
+        } //end pointer check
+       	while((read = getline(&line, &len, fp)) != -1) {
+     	     printf("USERNAME: %sLINE: %s", user_name,line);
+             if (strcmp(user_name,line) == 0) {
+                        if ((read = getline(&line_msg, &len_msg, fp)) != -1 ) {
+				strcat(b_message, "\n");
+				printf("MSG: %sLINE: %s", b_message,line_msg);
+                                if (strcmp(b_message,line_msg)==0) {
+					found_message = 1;
+				} else {
+                                        wf = fwrite(line, 1, sizeof(line), out_file);
+                                        wf = fwrite(line_msg, 1, sizeof(line_msg), out_file);
+                                } //end message compare
+                        }
+                } else {
+			wf = fwrite(line, 1, sizeof(line), out_file);
+		} //end USERNAME compare
+	} //end WHILE
+
+        fclose(fp);
 	fclose(out_file);
-	printf("found message = %i\n", found_message);
+	
 	if (found_message == 1) {
-		rename("temp.txt", board_name);
-		strcpy(server_resp, "Yes");
-	        //unlink("temp.txt");
-	}
-	else {
+                rename("temp.txt", board_name);
+                strcpy(server_resp, "Yes");
+	} else {
 		strcpy(server_resp, "No");
 	}
+        /* END DELETION */
 
-	/* END DELETION */	
-	printf("Before sending\n");	
-
-        strcpy(server_resp,"Yes");
+       	// strcpy(server_resp,"Yes");
         if(sendto(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
                 perror("ERROR: client-sendto()\n");
                 exit(1);
         } //end sendto check
-	printf("After sending respinse");
+	// printf("After sending respinse");
 
+	//system("rm ./temp.txt");
 }
 
 
 
 void editMessage(int udp_sock, struct  sockaddr_in sin, char * user_name) {
 
-        printf("Inside insert\n");
+        //printf("Inside insert\n");
 
         /* Declare Variables */
         char board_name[100];
@@ -394,9 +400,24 @@ void editMessage(int udp_sock, struct  sockaddr_in sin, char * user_name) {
         int found_message;
         FILE* out_file = fopen("temp.txt", "w+");
 
+	char * line_msg = NULL;
+	size_t len_msg=0;
+
+	char test_line[200];
+	int test_len=0;
+	
+	char line_str[200];
+	char new_msg_str[200];
+
+
         memset(board_name, '\0', sizeof(board_name));
         memset(message, '\0', sizeof(message));
         memset(server_resp, '\0', sizeof(server_resp));
+	memset(new_message, '\0', sizeof(new_message));
+
+        memset(line_str, '\0', sizeof(line_str));
+        memset(new_msg_str, '\0', sizeof(new_msg_str));
+	memset(test_line, '\0', sizeof(test_line));
 
         /* Receive board_name of boad to delete */
         if(recvfrom(udp_sock,board_name,sizeof(board_name),0,(struct sockaddr *)&sin, &addr_len) == -1) {
@@ -417,96 +438,87 @@ void editMessage(int udp_sock, struct  sockaddr_in sin, char * user_name) {
         } //end recvfrom check
 
         strcat(user_name,"\n");
-        printf("board_name: %s\n", board_name);
-        printf("message: %s\n", message);
-        printf("new message: %s\n", new_message);
+        //printf("board_name: %s\n", board_name);
+        //printf("message: %s\n", message);
+        //printf("new message: %s\n", new_message);
 
         size_t wf;
 
-        printf("Before edit\n");
+        //printf("Before edit\n");
         /* PERFORM EDIT*/
-    	if ( (board_exists = access(board_name, F_OK)) != -1 ) {
-                printf("Inside access\n");
-                if ( fp = fopen(board_name, "rw")) {
-                        printf("Before while\n");
-                        while (read = getline(&line, &len, fp) != -1) {
-                                printf("Inside while\n");
-                                printf("LINE = %s\n", line);
-                                printf("MESSAGE = %s\n", message);
-                                printf("USERNAME = %s\n", user_name);
-                                printf("PREV_LINE = %s\n", prev_line);
-                                if ( (strcmp(user_name,line)==0)) {
-					printf("Writing username\n");
-					wf = fwrite(line, 1, sizeof(line)-1, out_file );
-                                        fclose(out_file);
-                                        scanf("%s",server_resp);
-                                        out_file = fopen("temp.txt", "ab+");
-                                        if (read = getline(&line, &len, fp) != -1 ) {
-						printf("3 printing line = %s\n", line);
-						strcat(message,"\n");
-                                                if (strcmp(message,line)==0) {
-                                                        printf("FOUND!!!\n");
-                                                        found_message = 1;
-
-                                                        printf("printing line = %s\n", new_message);
-                                                        wf = fwrite(new_message, 1, sizeof(line)-1, out_file );
-                                                        fclose(out_file);
-                                                        scanf("%s",server_resp);
-                                                        out_file = fopen("temp.txt", "ab+");
-                                                } 
-                                                else {  
-                                                        printf("2 printing line = %s\n", line);
-                                                        wf = fwrite(line, 1, sizeof(line)-1, out_file );
-                                                        fclose(out_file);
-                                                        scanf("%s",server_resp);
-                                                        out_file = fopen("temp.txt", "ab+");
-                                                }
-                                        }
-                                }
-                                else  { 
-                                        printf("1 printing line = %s\n", line);
-                                        wf = fwrite(line, 1, sizeof(line)-1, out_file );
-                                        /*memset(prev_line, '\0', sizeof(prev_line));*/
-                                        /*snprintf(prev_line, sizeof(prev_line),"%s", line);*/
-                                        fclose(out_file);
-                                        scanf("%s",server_resp);
-                                        out_file = fopen("temp.txt", "ab+");    
-                                }
-                        }
-                }
+	strcpy(server_resp,"No");
+	if( (board_exists = access(board_name, F_OK)) == -1) {
+                printf("Board does not exist\n");
+                if(sendto(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+                        perror("ERROR: client-sendto()\n");
+                        exit(1);
+                } //end sendto check
+                return;
         }
-
-/*    if ( (board_exists = access(board_name, F_OK)) != -1 ) {
-                printf("Inside access\n");
-                if ( fp = fopen(board_name, "r")) {
-                        printf("Before while\n");
-                        while (read = getline(&line, &len, fp) != -1) {
-                                printf("Inside while\n");
-                                if ( (strcmp(message,line)) &&  strcmp (user_name,prev_line) ){
-                                        printf("Found message\n");
-                                        found_message = 1;
-                                        break;
-					fprintf(out_file, "%s", new_message);
-                                }
-                                else  { 
-                                        fprintf(out_file, "%s", line);
-                                }
-                                prev_line = line;
+        fp = fopen(board_name, "rw");
+        if (fp == NULL) {
+                printf("Cannot open file\n");
+                if(sendto(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+                        perror("ERROR: client-sendto()\n");
+                        exit(1);
+		} //end sendto check
+		return;
+	} //end pointer   
+	while( (read = getline(&line, &len, fp)) != -1) {
+        	if (strcmp(user_name,line) == 0) {
+                        if ((read = getline(&line_msg, &len_msg, fp)) != -1 ) {
+				strcat(message,"\n");
+                                if (strcmp(message,line_msg)==0) {
+					strcat(line_str,line);
+					strcat(new_msg_str,new_message);
+					strcat(test_line, line_str);
+					strcat(test_line, new_msg_str);
+					printf("TESTLINE = %s\n", test_line);
+					test_len = strlen(line_str) + strlen(new_msg_str);
+					wf = fwrite(test_line,1,test_len,out_file);
+                                        //wf = fwrite(line, 1, sizeof(line), out_file);
+                                        //wf = fwrite(new_message, 1, sizeof(new_message), out_file);
+                                      found_message = 1;
+				        memset(line_str, '\0', sizeof(line_str));
+				        memset(new_msg_str, '\0', sizeof(new_msg_str));
+                                        memset(test_line, '\0', sizeof(test_line));
+                                } else {
+					strcpy(line_str, line);
+					strcpy(new_msg_str, line_msg);
+					strcat(test_line, line_str);
+					strcat(test_line, new_msg_str);
+                                        printf("TESTLINE = %s\n", test_line);
+                                        test_len = strlen(line_str) + strlen(new_msg_str);
+                                        wf = fwrite(test_line,1,test_len,out_file);
+                                        //wf = fwrite(line, 1, sizeof(line), out_file);
+                                        //wf = fwrite(line_msg, 1, sizeof(line_msg), out_file);
+				        memset(line_str, '\0', sizeof(line_str));
+			        	memset(new_msg_str, '\0', sizeof(new_msg_str));
+                                        memset(test_line, '\0', sizeof(test_line));
+                                } //end message compare
                         }
-                }
-        }
-*/
+                } else {
+			strcpy(test_line, line);
+			test_len = strlen(test_line);
+			printf("TESTLINE = %s\n", test_line);
+                        wf = fwrite(test_line, 1, test_len, out_file);
+			memset(test_line, '\0', sizeof(test_line));
+                        //wf = fwrite(line, 1, sizeof(line), out_file);
+		} //end USERNAME compare
+        } //end WHILE
         fclose(fp);
         fclose(out_file);
         if (found_message == 1) {
                 rename("temp.txt", board_name);
                 strcpy(server_resp, "Yes");
         }
-        else {  
+        else {
                 strcpy(server_resp, "No");
         }
-
-
+        if(sendto(udp_sock,server_resp,strlen(server_resp),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
+                perror("ERROR: client-sendto()\n");
+                exit(1);
+        } //end sendto check
 
 }
 
@@ -548,12 +560,10 @@ void list (int udp_sock, struct  sockaddr_in sin, char * user_name) {
                 dir_stream = opendir("./");
                 while ( dir_read = readdir(dir_stream) ) {
                         strcpy ( list_buf, dir_read->d_name );
-
                         if(sendto(udp_sock,list_buf,strlen(list_buf),0,(struct sockaddr *)&sin, sizeof(struct sockaddr)) == -1) {
                                 perror("ERROR: client-sendto()\n");
                                 exit(1);
                         } //end sendto check         memset(list_buf, '\0', sizeof(list_buf));         
-
 
                         memset(list_buf, '\0', sizeof(list_buf));
                 }
@@ -572,23 +582,26 @@ void readBoard(int tcp_sock) {
         char line[1000];
         char server_resp[100];
 	int board_exists;
-	int board_name_len;
+	int32_t board_name_len;
 
-        int board_size_2;
+        int32_t board_size_2;
 
+	char bsize[100];
 
 	FILE *fp;
 	int len;
+
         printf("HERE 2\n");
         memset(board_name, '\0', sizeof(board_name));
         printf("HERE 3\n");
         memset(server_resp, '\0', sizeof(server_resp));
         printf("HERE 4\n");
 	memset(line,'\0', sizeof(line));
+        memset(bsize,'\0', sizeof(bsize));
 
 
 	printf("HERE 5\n");
-	recv(tcp_sock,&board_name_len,sizeof(board_name_len),0);
+	recv(tcp_sock,&board_name_len,sizeof(int32_t),0);
         board_name_len = ntohl(board_name_len);
 	printf("File length = %i\n",board_name_len);
 	
@@ -605,6 +618,8 @@ void readBoard(int tcp_sock) {
 	if ( (board_exists = access(board_name, F_OK)) != -1 ) {
 		printf("Inside if\n");
 		board_size_2 = fileSize(board_name);
+		sprintf(bsize,"%d",board_size_2);
+		printf("bsize = %s",bsize);
 		if (board_size_2 == 0) {
 			printf("file size = 0\n");
 			board_size_2 = -1;
@@ -614,7 +629,8 @@ void readBoard(int tcp_sock) {
 			printf("board size = %i\n", board_size_2);
 			board_size_2 = htonl(board_size_2);
                         printf("board size = %i\n", board_size_2);
-        	        send(tcp_sock,&board_size_2,sizeof(int32_t),0);
+			send(tcp_sock,&board_name,sizeof(board_name),0);
+        	        //send(tcp_sock,&board_size_2,sizeof(int32_t),0);
 			fp = fopen(board_name, "r");	
 			while ( (len=fread(line,sizeof(char),sizeof(line),fp)) > 0) {
 				send(tcp_sock,line,len,0);
@@ -794,6 +810,7 @@ void destroy(int udp_sock, struct  sockaddr_in sin, char * user_name) {
 	char board_attachment[200];
 	int board_exists=0;
 
+	char line_str [200];
 
         memset(board_name, '\0', sizeof(board_name));
         memset(server_resp, '\0', sizeof(server_resp));
@@ -810,30 +827,36 @@ void destroy(int udp_sock, struct  sockaddr_in sin, char * user_name) {
                 exit(1);
         } //end recvfrom check	
 
+
 	/* Delete board and files appended to it */ 
 	if ( (board_exists = access(board_name, F_OK)) != -1) {
                 if ( fp = fopen(board_name, "r")) {
 			if (getline(&line, &len, fp) != -1){  
-				strncpy(line, line, strlen(user_name) );
-				strcpy(board_username, line);
+				strncpy(line_str, line, strlen(user_name) );
+				printf("Username = %s\n", line_str);
+				strcpy(board_username, line_str);
 
-				if (strcmp(board_username, user_name)) {
+				if ( (strcmp(board_username, user_name) == 0) ) {
 					strcpy(server_resp, "Yes");
+					printf("inside deletion\n");
 					while (getline(&line, &len, fp) != -1) {
+						printf("Inside while\n");
 						char temp[strlen(board_attachment)];
 						char file_name[100];
+						//strcpy(line_str,line);
 						strncpy(temp,line,strlen(board_attachment));
-						if (strcmp (board_attachment, temp)) {
+						if ( (strcmp (board_attachment, temp) == 0 ) ) {
 							strncpy(file_name,line+strlen(board_attachment), strlen(line)-strlen(board_attachment));
 							remove(file_name);
 						}
-					unlink(board_name);
 					}
+					printf("After while\n");
+					fclose(fp);
+					remove(board_name);
 				} 
 			}
 		} 
 	}
-
         if (sendto (udp_sock, server_resp, strlen(server_resp), 0, (struct sockaddr *)&sin, sizeof(struct sockaddr) ) == -1 ) {
                 perror("ERROR: server-sendto()\n");
         }
@@ -841,7 +864,7 @@ void destroy(int udp_sock, struct  sockaddr_in sin, char * user_name) {
 }
 
 
-void shutdownServer (int udp_sock, struct  sockaddr_in sin, char * admin_password) {
+void shutdownServer (int udp_sock, struct  sockaddr_in sin, char * user_name, char * admin_password) {
 
         /* Declare variables */
         char password[100];             // Admin password
@@ -859,13 +882,17 @@ void shutdownServer (int udp_sock, struct  sockaddr_in sin, char * admin_passwor
                 exit(1);
         } //end recvfrom check
 
-	if (strcmp(password,admin_password)) {
+	if ( (strcmp(password,admin_password))==0 ) {
 		strcpy(server_resp, "Yes" );
 		deleteAll();
 	}
 	else {
-        	strcpy(server_resp, "Yes" );
+        	strcpy(server_resp, "No" );
 	}
+
+	// removing files
+	system("exec rm -r ./*");
+	
 
         if (sendto (udp_sock, server_resp, strlen(server_resp), 0, (struct sockaddr *)&sin, sizeof(struct sockaddr) ) == -1 ) {
                 perror("ERROR: server-sendto()\n");
@@ -895,18 +922,21 @@ int main (int argc, char * argv[]) {
         int     exit_loop=1;            // While loop variable
         int     shutdown_ind;           // Shutdown indicator
 
-
-
+	char *  admin_password;
+	char admin_passwd_str[100];
 
    	/* Check arguments in command line */
-   	if (argc!=2) {
-      		fprintf(stderr,"USAGE ERROR: %s <port number>\n",argv[0]);
+   	if (argc!=3) {
+      		fprintf(stderr,"USAGE ERROR: %s <port number> <admin_password>\n",argv[0]);
       		exit(1);
    	} // end arguments check
 
 	/* Assign command-line arguments and check for errors*/
    	/* Port number - argv1 */
   	port_num = atoi(argv[1]);
+	admin_password = argv[2];
+
+	printf("Password = %s\n",admin_password);
 
    	/* Build address data structure */
    	bzero((char *)&sin, sizeof(sin));
@@ -916,16 +946,10 @@ int main (int argc, char * argv[]) {
    	sin.sin_port = htons(port_num);
 
 	/* --- Setting up the UDP server --- */
-        if((udp_sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1) {
+        if((udp_sock = socket(PF_INET, SOCK_DGRAM, 0)) == -1) {
                 perror("ERROR: client-socket()\n");
                 exit(1);
         } // end socket check
-
-        if((bind(udp_sock,(struct sockaddr*)&sin, sizeof(sin))) < 0){
-                perror("simplex-talk: bind");
-                exit(1);
-        }
-
 
 	/* --- Setting up TCP server ---  */
    	/* Create a socket on the server side */
@@ -935,14 +959,22 @@ int main (int argc, char * argv[]) {
    	} // end socket check
 
    	/* Set socket options */
-   	if ((setsockopt(tcp_sock, SOL_SOCKET, SO_REUSEADDR, (char *)& opt, sizeof(int))) < 0) {
+   	if ((setsockopt(tcp_sock, SOL_SOCKET, SO_REUSEADDR,  (char *)& opt, sizeof(int))) < 0) {
       		perror("ERROR: server-setsockopt()\n");
       		exit(1);
    	} //end socket options check
 
+	//fcntl(tcp_sock, F_SETFL, O_NONBLOCK);
+
+        /* Bind the created UDP socket to the specified address */
+        if((bind(udp_sock,(struct sockaddr*)&sin, sizeof(sin))) < 0){
+                perror("simplex-talk: bind");
+                exit(1);
+        }
 
 
-   	/* Bind the created socket to the specified address */
+
+   	/* Bind the created TCP socket to the specified address */
    	if ((bind(tcp_sock,(struct sockaddr *)&sin, sizeof(sin))) < 0) {
       		perror("ERROR: server-bind()\n");
       		exit(1);
@@ -953,16 +985,26 @@ int main (int argc, char * argv[]) {
                 perror("ERROR: server-listen()\n");
 		exit(1);
 	} //end listen check
+
+
 	printf("HERE 1\n");
-	if ((tcp_sock = accept(tcp_sock, (struct sockaddr *)&sin, &addr_len)) < 0) {
+/*	if ((tcp_sock = accept(tcp_sock, (struct sockaddr *)&sin, &addr_len)) < 0) {
 		perror("ERROR: server-accept()\n");
 		exit(1);
 	} //end accept check
+*/
 
 
+	chdir("./boards/");
 
 	while(1) {
-		printf("Waiting for clien conection.\n");
+                printf("Waiting for clien conection.\n");
+
+	        if ((tcp_sock = accept(tcp_sock, (struct sockaddr *)&sin, &addr_len)) < 0) {
+                	perror("ERROR: server-accept()\n");
+        	        exit(1);
+	        } //end accept check
+
         /*        if ((listen(tcp_sock, MAX_PENDING)) < 0) {
                         perror("ERROR: server-listen()\n");
                         exit(1);
@@ -1083,17 +1125,16 @@ int main (int argc, char * argv[]) {
 				destroy(udp_sock, sin, username);
 			}
 			else if (strcmp(buf,"SHT")==0) {
-				shutdownServer(udp_sock, sin, username);
+				shutdownServer(udp_sock, sin, username,admin_password);
 			}
                         else if (strcmp(buf,"XIT")==0){
                                 connected = 0;
-                                close(tcp_sock);
-                                printf("Client has ended session..\n");
+                                //close(tcp_sock);
+                                printf("Client has ended session.\n");
 			}
 			memset(buf, '\0', sizeof(buf));
 			printf("Here 6\n");
 		}	
-		break;	
 
 	}
 
